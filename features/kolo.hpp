@@ -8,9 +8,14 @@ private:
     float speed;
     sf::Vector2f velocity;
     bool isJumping;
-    const float gravity = 9.8f;
-    const float jumpForce = -15.0f;
+    bool isCharging;
+    float chargeTime;
+    const float gravity = 980.f;
     const float groundLevel;
+    const float minJumpForce = -400.f;
+    const float maxJumpForce = -800.f;
+    const float chargeSpeed = 1.5f;
+    bool wasSpacePressedLastFrame = false;
 
 public:
     Kolo(float radius, float x, float y, const sf::Color &color, float movementSpeed);
@@ -18,6 +23,7 @@ public:
     void update(float deltaTime);
     void draw(sf::RenderWindow &window) const;
     void handleInput();
+    void startCharging();
     void jump();
 
     const sf::CircleShape &getShape() const;

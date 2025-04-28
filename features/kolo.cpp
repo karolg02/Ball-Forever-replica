@@ -1,48 +1,89 @@
 #include "kolo.hpp"
-
-Kolo::Kolo(float radius, float x, float y, const sf::Color &color, float movementSpeed) : speed(movementSpeed), velocity(0, 0), isJumping(false), groundLevel(y)
+// #include <iostream>
+Kolo::Kolo(float radius, float x, float y, const sf::Color &color, float movementSpeed)
+    : speed(movementSpeed),
+      velocity(0.f, 0.f),
+      isJumping(false),
+      isCharging(false),
+      chargeTime(0.f),
+      groundLevel(y + radius)
 {
     shape.setRadius(radius);
+    shape.setOrigin({radius, radius});
     shape.setPosition({x, y});
     shape.setFillColor(color);
-    shape.setOrigin({radius, radius});
 }
 
 void Kolo::handleInput()
 {
     float moveX = 0;
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))
-    {
-        moveX = -1;
-    }
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))
-    {
-        moveX = 1;
-    }
-    velocity.x = moveX * 10.0f;
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A))
+        moveX = -1.f;
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D))
+        moveX = 1.f;
 
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) && !isJumping)
+    velocity.x = moveX * 100.f;
+
+    bool spacePressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
+
+    if (spacePressed && !wasSpacePressedLastFrame && !isJumping)
+    {
+        startCharging();
+    }
+    else if (!spacePressed && wasSpacePressedLastFrame && isCharging)
     {
         jump();
     }
+
+    wasSpacePressedLastFrame = spacePressed;
+}
+
+void Kolo::startCharging()
+{
+    isCharging = true;
+    chargeTime = 0.f;
 }
 
 void Kolo::update(float deltaTime)
 {
-    velocity.y += gravity * 10 * deltaTime;
-    shape.move(velocity * speed * deltaTime);
-    if (shape.getPosition().y >= groundLevel)
+    if (isCharging && !isJumping)
     {
-        shape.setPosition({shape.getPosition().x, groundLevel});
-        velocity.y = 0;
+        chargeTime += deltaTime * chargeSpeed;
+        int colorOffset = static_cast<int>(chargeTime * 150);
+        colorOffset = std::min(colorOffset, 255);
+        shape.setFillColor(sf::Color(255, 255 - colorOffset, 255 - colorOffset));
+    }
+
+    velocity.y += gravity * deltaTime;
+    shape.move(velocity * deltaTime);
+
+    float radius = shape.getRadius();
+    float posY = shape.getPosition().y;
+
+    if (posY + radius >= groundLevel)
+    {
+        shape.setPosition({shape.getPosition().x, groundLevel - radius});
+        velocity.y = 0.f;
+
         isJumping = false;
+
+        if (!isCharging)
+        {
+            chargeTime = 0.f;
+            shape.setFillColor(sf::Color::Red);
+        }
     }
 }
 
 void Kolo::jump()
 {
-    velocity.y = jumpForce * 5;
     isJumping = true;
+    isCharging = false;
+
+    float force = minJumpForce + (maxJumpForce - minJumpForce) * std::min(chargeTime, 1.f);
+    velocity.y = force;
+
+    chargeTime = 0.f;
 }
 
 void Kolo::draw(sf::RenderWindow &window) const
