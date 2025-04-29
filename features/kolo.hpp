@@ -16,6 +16,7 @@ private:
     const float maxJumpForce = -800.f;
     const float chargeSpeed = 1.5f;
     bool wasSpacePressedLastFrame = false;
+    bool haveCollision;
 
 public:
     Kolo(float radius, float x, float y, const sf::Color &color, float movementSpeed);
@@ -25,6 +26,7 @@ public:
     void handleInput();
     void startCharging();
     void jump();
+    void checkCollision(const sf::RectangleShape &block);
 
     const sf::CircleShape &getShape() const;
 };
