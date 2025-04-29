@@ -1,12 +1,15 @@
 #include "kolo.hpp"
-// #include <iostream>
+#include <iostream>
+#include <algorithm>
+
 Kolo::Kolo(float radius, float x, float y, const sf::Color &color, float movementSpeed)
     : speed(movementSpeed),
       velocity(0.f, 0.f),
       isJumping(false),
       isCharging(false),
       chargeTime(0.f),
-      groundLevel(y + radius)
+      haveCollision(false),
+      wasSpacePressedLastFrame(false)
 {
     shape.setRadius(radius);
     shape.setOrigin({radius, radius});
@@ -22,16 +25,20 @@ void Kolo::handleInput()
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D))
         moveX = 1.f;
 
-    velocity.x = moveX * 500.f;
+    velocity.x = 50 * moveX * speed; // Użyj zmiennej speed zamiast stałej wartości 500.f
 
     bool spacePressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
 
-    if (spacePressed && !wasSpacePressedLastFrame && !isJumping)
+    // Skok możliwy tylko gdy jest kolizja (na ziemi) i nie jesteśmy w trakcie skoku
+    if (spacePressed && !wasSpacePressedLastFrame && haveCollision && !isJumping)
     {
+        // Rozpoczęcie ładowania
         startCharging();
     }
-    else if (!spacePressed && wasSpacePressedLastFrame && isCharging)
+
+    if (!spacePressed && wasSpacePressedLastFrame && isCharging && haveCollision)
     {
+        // Puszczenie spacji = skok
         jump();
     }
 
@@ -46,33 +53,24 @@ void Kolo::startCharging()
 
 void Kolo::update(float deltaTime)
 {
-    if (isCharging && !isJumping)
+    if (isCharging)
     {
-        chargeTime += deltaTime * chargeSpeed;
-        int colorOffset = static_cast<int>(chargeTime * 150);
-        colorOffset = std::min(colorOffset, 255);
-        shape.setFillColor(sf::Color(255, 255 - colorOffset, 255 - colorOffset));
+        chargeTime += deltaTime;                // Ładuj siłę skoku
+        chargeTime = std::min(chargeTime, 1.f); // Ogranicz do maksimum (np. 1 sekunda)
+        shape.setFillColor(sf::Color::Yellow);  // Efekt wizualny ładowania (opcjonalnie)
     }
 
-    velocity.y += gravity * deltaTime;
-    shape.move(velocity * deltaTime);
-
-    float radius = shape.getRadius();
-    float posY = shape.getPosition().y;
-
-    if (posY + radius >= groundLevel)
+    if (!haveCollision)
     {
-        shape.setPosition({shape.getPosition().x, groundLevel - radius});
-        velocity.y = 0.f;
-
+        velocity.y += gravity * deltaTime;
+    }
+    else
+    {
+        velocity.y = 0;
         isJumping = false;
-
-        if (!isCharging)
-        {
-            chargeTime = 0.f;
-            shape.setFillColor(sf::Color::Red);
-        }
     }
+
+    shape.move(velocity * deltaTime);
 }
 
 void Kolo::jump()
@@ -81,9 +79,11 @@ void Kolo::jump()
     isCharging = false;
 
     float force = minJumpForce + (maxJumpForce - minJumpForce) * std::min(chargeTime, 1.f);
-    velocity.y = force;
+    velocity.y = force; // Poprawka: skok w górę = ujemna prędkość
 
+    haveCollision = false;
     chargeTime = 0.f;
+    shape.setFillColor(sf::Color::Red); // Wskazanie skoku
 }
 
 void Kolo::checkCollision(const sf::RectangleShape &block)
@@ -91,12 +91,9 @@ void Kolo::checkCollision(const sf::RectangleShape &block)
     const auto koloBounds = shape.getGlobalBounds();
     const auto blockBounds = block.getGlobalBounds();
 
-    if (!(koloBounds.position.x < blockBounds.position.x + blockBounds.size.x &&
-          koloBounds.position.x + koloBounds.size.x > blockBounds.position.x &&
-          koloBounds.position.y < blockBounds.position.y + blockBounds.size.y &&
-          koloBounds.position.y + koloBounds.size.y > blockBounds.position.y))
+    if (!koloBounds.findIntersection(blockBounds))
     {
-        return; // brak kolizji
+        return; // Brak kolizji
     }
 
     float koloBottom = koloBounds.position.y + koloBounds.size.y;
@@ -124,17 +121,18 @@ void Kolo::checkCollision(const sf::RectangleShape &block)
     else
     {
         // Kolizja pionowa
+        // Kolizja pionowa
         if (fromTop < fromBottom)
         {
+            // Lądowanie
             shape.move({0.f, -fromTop});
             velocity.y = 0.f;
+            haveCollision = true; // Ustawiamy flagę kolizji
             isJumping = false;
-            isCharging = false;
-            chargeTime = 0.f;
-            shape.setFillColor(sf::Color::Red);
         }
         else
         {
+            // Uderzenie od dołu
             shape.move({0.f, fromBottom});
             velocity.y = 0.f;
         }

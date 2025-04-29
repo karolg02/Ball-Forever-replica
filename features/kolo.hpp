@@ -11,11 +11,10 @@ private:
     bool isCharging;
     float chargeTime;
     const float gravity = 980.f;
-    const float groundLevel;
-    const float minJumpForce = -400.f;
-    const float maxJumpForce = -800.f;
+    const float minJumpForce = -500.f;
+    const float maxJumpForce = -1000.f;
     const float chargeSpeed = 1.5f;
-    bool wasSpacePressedLastFrame = false;
+    bool wasSpacePressedLastFrame;
     bool haveCollision;
 
 public:
